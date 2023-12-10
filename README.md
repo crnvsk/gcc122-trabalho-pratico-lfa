@@ -2,5 +2,5 @@
 
 ## Discentes:
 
-João Pedro Alves Carneiro Valadão
-Augusto Inácio Silva Mariano
+- João Pedro Alves Carneiro Valadão
+- Augusto Inácio Silva Mariano
