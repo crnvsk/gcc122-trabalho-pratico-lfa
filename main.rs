@@ -1,9 +1,15 @@
-#![allow(dead_code)]
+// Este programa lê uma descrição de uma máquina de Turing a partir de um arquivo de
+// configuração, inicializa uma fita com uma palavra de entrada, executa a máquina de 
+// Turing e escreve o resultado em um arquivo de saída. O código está organizado em 
+// funções para facilitar a compreensão e manutenção.
+
+#![allow(dead_code)] // Permite códigos não utilizados sem emitir um aviso
 
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 
+// Estrutura que representa uma transição da máquina de Turing
 struct Transition {
     from_state: String,
     read_symbol: char,
@@ -12,6 +18,7 @@ struct Transition {
     move_direction: char,
 }
 
+// Estrutura que representa uma máquina de Turing
 struct TuringMachine {
     states: Vec<String>,
     alphabet: Vec<String>,
@@ -21,6 +28,7 @@ struct TuringMachine {
     accept_states: Vec<String>,
 }
 
+// Função auxiliar para ler uma lista de uma linha
 fn read_list_from_line(line: &str) -> Vec<String> {
     line.trim_matches(|c| char::is_ascii_punctuation(&c))
         .split(',')
@@ -29,6 +37,7 @@ fn read_list_from_line(line: &str) -> Vec<String> {
         .collect()
 }
 
+// Função auxiliar para ler uma transição de uma linha
 fn read_transition_from_line(line: &str) -> Transition {
     let parts: Vec<&str> = line.split("->").collect();
     let from_state_symbol: Vec<String> = read_list_from_line(parts[0]);
@@ -50,7 +59,9 @@ fn read_transition_from_line(line: &str) -> Transition {
     }
 }
 
+// Função para construir uma máquina de Turing a partir de um arquivo de configuração
 fn build_turing_machine(config_file: String) -> TuringMachine {
+    // Abre o arquivo de configuração
     let file = File::open(config_file).expect("Unable to open the file");
     let reader = BufReader::new(file);
 
@@ -63,6 +74,7 @@ fn build_turing_machine(config_file: String) -> TuringMachine {
     let mut initial_state = String::new();
     let mut accept_states = Vec::new();
 
+    // Itera sobre as linhas do arquivo
     for line in reader.lines() {
         let line = line.expect("Unable to read line");
         let line = line.trim();
@@ -85,6 +97,7 @@ fn build_turing_machine(config_file: String) -> TuringMachine {
         line_counter += 1;
     }
 
+    // Retorna a máquina de Turing construída
     TuringMachine {
         states,
         alphabet,
@@ -95,6 +108,7 @@ fn build_turing_machine(config_file: String) -> TuringMachine {
     }
 }
 
+// Função para formatar a fita da máquina de Turing para exibição
 fn format_tape(tape: &Vec<char>, head_position: usize, current_state: &String) -> String {
     tape.iter()
         .enumerate()
@@ -110,6 +124,7 @@ fn format_tape(tape: &Vec<char>, head_position: usize, current_state: &String) -
         .collect::<String>()
 }
 
+// Função para inicializar a fita da máquina de Turing com a palavra de entrada
 fn initialize_tape(input_word: &str) -> Vec<char> {
     let mut tape: Vec<char> = vec!['B'];
     tape.extend(input_word.chars());
@@ -117,6 +132,7 @@ fn initialize_tape(input_word: &str) -> Vec<char> {
     tape
 }
 
+// Função para escrever na saída
 fn write_to_output(
     output_buffer: &mut BufWriter<File>,
     tape: &Vec<char>,
@@ -131,6 +147,7 @@ fn write_to_output(
     .expect("Failed to write to output file");
 }
 
+// Função principal para executar a máquina de Turing
 fn run_turing_machine(tm: TuringMachine, input_word: String, output_file: String) {
     let mut tape = initialize_tape(&input_word);
     let mut current_state = tm.initial_state.clone();
@@ -141,14 +158,17 @@ fn run_turing_machine(tm: TuringMachine, input_word: String, output_file: String
 
     write_to_output(&mut output_buffer, &tape, head_position, &current_state);
 
+    // Loop principal da execução da máquina de Turing
     loop {
         let current_symbol = tape[head_position];
 
+        // Procura pela transição correspondente
         let transition = match tm.transitions.iter().find(|t| {
             t.from_state == current_state && t.read_symbol == current_symbol
         }) {
             Some(transition) => transition,
             None => {
+                // Se não houver transição, rejeita a entrada
                 writeln!(
                     &mut output_buffer,
                     "rejeita"
@@ -158,17 +178,21 @@ fn run_turing_machine(tm: TuringMachine, input_word: String, output_file: String
             }
         };
 
+        // Atualiza a fita e o estado
         tape[head_position] = transition.write_symbol;
         current_state = transition.to_state.clone();
 
+        // Move a cabeça de leitura/escrita
         match transition.move_direction {
             'D' => head_position += 1,
             'E' => head_position -= 1,
             _ => panic!("Invalid move direction"),
         }
 
+        // Escreve o estado atual da fita na saída
         write_to_output(&mut output_buffer, &tape, head_position, &current_state);
 
+        // Verifica se o estado atual é um estado de aceitação
         if tm.accept_states.contains(&current_state) {
             writeln!(
                 &mut output_buffer,
@@ -180,19 +204,25 @@ fn run_turing_machine(tm: TuringMachine, input_word: String, output_file: String
     }
 }
 
+// Função principal
 fn main() {
+    // Obtém os argumentos da linha de comando
     let args: Vec<String> = env::args().collect();
 
+    // Verifica se o número de argumentos é válido
     if args.len() != 4 {
         eprintln!("Usage: cargo run description_file.txt input_word output_file.txt");
         std::process::exit(1);
     }
 
+    // Obtém os nomes dos arquivos de entrada e saída
     let machine_file = args[1].to_string();
     let input_word = args[2].to_string();
     let output_file = args[3].to_string();
 
+    // Constrói a máquina de Turing a partir do arquivo de configuração
     let turing_machine = build_turing_machine(machine_file);
 
+    // Executa a máquina de Turing com a palavra de entrada e escreve o resultado no arquivo de saída
     run_turing_machine(turing_machine, input_word, output_file);
 }
